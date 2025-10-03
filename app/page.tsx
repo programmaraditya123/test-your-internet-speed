@@ -13,7 +13,7 @@ export default function Home() {
   // Fetch speed test data
   const fetchSpeedData = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/speedtest`);
+      const response = await axios.get(`https://education-specific-ai-agent-710178903619.asia-south1.run.app/speedtest`);
       setSpeedData(response.data.message);
     } catch (error) {
       console.error(error);
@@ -23,7 +23,7 @@ export default function Home() {
   // Fetch server list
   const fetchServers = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/get_servers`);
+      const response = await axios.get(`https://education-specific-ai-agent-710178903619.asia-south1.run.app/get_servers`);
       setServers(response.data.servers || []);
     } catch (error) {
       console.error(error);
