@@ -1,118 +1,128 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
+import { useSpeedTest } from "@/components/useSpeedTest";
+import SpeedResults from "@/components/SpeedResults";
+import HistoryChart from "@/components/HistoryChart";
 import styles from "./page.module.css";
 
-const BASE_URL=process.env.NEXT_PUBLIC_PYTHON2_API
+interface HistoryItem {
+  id: number;
+  ping: number;
+  jitter: number;
+  download: number;
+  upload: number;
+  timestamp: string;
+}
 
-export default function Home() {
-  const [speedData, setSpeedData] = useState<any>(null);
-  const [servers, setServers] = useState<any[]>([]);
+export default function Page() {
+  const {
+    ping,
+    jitter,
+    download,
+    upload,
+    history: testHistory,
+    testing,
+    runFullTest,
+  } = useSpeedTest();
 
-  // Fetch speed test data
-  const fetchSpeedData = async () => {
-    try {
-      const response = await axios.get(`https://education-specific-ai-agent-710178903619.asia-south1.run.app/speedtest`);
-      setSpeedData(response.data.message);
-    } catch (error) {
-      console.error(error);
-    }
-  };
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
-  // Fetch server list
-  const fetchServers = async () => {
-    try {
-      const response = await axios.get(`https://education-specific-ai-agent-710178903619.asia-south1.run.app/get_servers`);
-      setServers(response.data.servers || []);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
+  // 🧠 Load previous history from localStorage
   useEffect(() => {
-    fetchSpeedData();
-    fetchServers();
+    const saved = localStorage.getItem("speedHistory");
+    if (saved) setHistory(JSON.parse(saved));
   }, []);
 
-  if (!speedData) {
-    return <div className={styles.loading}>Loading ...</div>;
-  }
+  // 💾 Save whenever local history updates
+  useEffect(() => {
+    if (history.length > 0)
+      localStorage.setItem("speedHistory", JSON.stringify(history));
+  }, [history]);
+
+  // 🚀 Start test & record results
+  const handleStart = async () => {
+    await runFullTest();
+    setHistory((prev) => [
+      {
+        id: prev.length + 1,
+        ping,
+        jitter,
+        download,
+        upload,
+        timestamp: new Date().toLocaleString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  // 📊 Insight calculations
+  const avg = (key: keyof HistoryItem) =>
+    history.length > 0
+      ? (
+          history.reduce((a, b) => a + (b[key] as number), 0) / history.length
+        ).toFixed(1)
+      : "—";
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>🌐 Internet Speed Test</h1>
+        <h1>🚀 Internet Speed Analyzer</h1>
+        <p className={styles.subtext}>
+          Real-time, browser-based test. No backend. No limits.
+        </p>
+
+        <button
+          onClick={handleStart}
+          disabled={testing}
+          className={testing ? styles.btnDisabled : styles.btn}
+        >
+          {testing ? "Testing..." : "Start Speed Test"}
+        </button>
       </header>
 
-      <section className={styles.speedResults}>
-        <h2>Speed Test Results</h2>
-        <div className={styles.cards}>
-          <div className={styles.card}>
-            <h3>Download</h3>
-            <p>{speedData.download_speed} Mbps</p>
-          </div>
-          <div className={styles.card}>
-            <h3>Upload</h3>
-            <p>{speedData.upload_speed} Mbps</p>
-          </div>
-          <div className={styles.card}>
-            <h3>Ping</h3>
-            <p>{speedData.ping} ms</p>
-          </div>
-          <div className={styles.card}>
-            <h3>ISP</h3>
-            <p>{speedData.isp}</p>
-          </div>
-        </div>
+      <main className={styles.main}>
+        <SpeedResults
+          ping={ping}
+          jitter={jitter}
+          download={download}
+          upload={upload}
+          testing={testing}
+        />
 
-        <div className={styles.serverInfo}>
-          <h3>Server Location</h3>
-          <p>
-            {speedData.server.name}, {speedData.server.country}
-          </p>
-          <p>
-            Latitude: {speedData.server.lat}, Longitude: {speedData.server.lon}
-          </p>
-        </div>
-      </section>
+        <section className={styles.historySection}>
+          <h2>📈 Test History</h2>
+          <HistoryChart history={history} />
+        </section>
 
-      <section className={styles.serverList}>
-        <h2>Available Speedtest Servers</h2>
-        {servers.length === 0 ? (
-          <p>No servers available.</p>
-        ) : (
-          <div className={styles.tableWrapper}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Host</th>
-                  <th>Name</th>
-                  <th>Country</th>
-                  <th>Sponsor</th>
-                  <th>Distance (km)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {servers.map((server) => (
-                  <tr key={server.id}>
-                    <td>{server.id}</td>
-                    <td>{server.host}</td>
-                    <td>{server.name}</td>
-                    <td>{server.country}</td>
-                    <td>{server.sponsor}</td>
-                    <td>{server.distance?.toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section className={styles.insights}>
+          <h3>💡 Performance Insights</h3>
+          <div className={styles.statsGrid}>
+            <div>
+              <h4>Avg Download</h4>
+              <p>{avg("download")} Mbps</p>
+            </div>
+            <div>
+              <h4>Avg Upload</h4>
+              <p>{avg("upload")} Mbps</p>
+            </div>
+            <div>
+              <h4>Avg Ping</h4>
+              <p>{avg("ping")} ms</p>
+            </div>
+            <div>
+              <h4>Avg Jitter</h4>
+              <p>{avg("jitter")} ms</p>
+            </div>
           </div>
-        )}
-      </section>
+        </section>
+      </main>
 
       <footer className={styles.footer}>
-        <p>© 2025 My Speed Test App</p>
+        <p>
+          © {new Date().getFullYear()} Internet Speed Analyzer | Crafted by{" "}
+          <strong>Aditya ⚡</strong>
+        </p>
       </footer>
     </div>
   );

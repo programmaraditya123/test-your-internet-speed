@@ -1,0 +1,32 @@
+.gaugeBox {
+  text-align: center;
+  margin: 20px;
+  display: inline-block;
+}
+
+.gauge {
+  position: relative;
+  display: inline-block;
+}
+
+.gaugeSvg {
+  width: 200px;
+  height: 100px;
+}
+
+.needle {
+  transform-origin: bottom center;
+}
+
+.label {
+  color: #9ca3af;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.value {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 8px;
+}
