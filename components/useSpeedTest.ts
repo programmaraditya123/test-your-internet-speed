@@ -8,8 +8,7 @@ type SpeedData = {
   timestamp: string;
 };
 
-// const API_BASE = "http://localhost:8000"; 
-const API_BASE = "https://education-specific-ai-agent-710178903619.asia-south1.run.app"
+const API_BASE = "https://education-specific-ai-agent-710178903619.asia-south1.run.app";
 
 export const useSpeedTest = () => {
   const [ping, setPing] = useState(0);
@@ -19,7 +18,6 @@ export const useSpeedTest = () => {
   const [history, setHistory] = useState<SpeedData[]>([]);
   const [testing, setTesting] = useState(false);
 
-  // Load history from localStorage
   useEffect(() => {
     const saved = localStorage.getItem("speedHistory");
     if (saved) setHistory(JSON.parse(saved));
@@ -30,21 +28,22 @@ export const useSpeedTest = () => {
   // -----------------------------
   const measurePing = async (attempts = 5) => {
     const results: number[] = [];
+
     for (let i = 0; i < attempts; i++) {
       const start = performance.now();
-      await fetch("https://1.1.1.1/cdn-cgi/trace", { mode: "no-cors" });
+      await fetch(`${API_BASE}/ping?nocache=${Date.now()}`); // Create small ping endpoint
       const end = performance.now();
       results.push(end - start);
     }
-    const avg = results.reduce((a, b) => a + b) / results.length;
+
+    const avg = results.reduce((a, b) => a + b, 0) / results.length;
     const jit =
       results.length > 1
         ? Math.sqrt(
             results
               .slice(1)
               .map((r, i) => Math.pow(r - results[i], 2))
-              .reduce((a, b) => a + b) /
-              (results.length - 1)
+              .reduce((a, b) => a + b, 0) / (results.length - 1)
           )
         : 0;
 
@@ -54,17 +53,25 @@ export const useSpeedTest = () => {
   };
 
   // -----------------------------
-  // Measure Download with concurrency
+  // Measure Download
   // -----------------------------
   const measureDownload = async () => {
-    const files = Array(4).fill(`${API_BASE}/download`);
     const start = performance.now();
-    await Promise.all(files.map((url) => fetch(url)));
-    const end = performance.now();
+    const response = await fetch(`${API_BASE}/download`);
+    const reader = response.body?.getReader();
 
-    const bytes = 4 * 50 * 1024 * 1024; // 4 x 50 MB
-    const timeSec = (end - start) / 1000;
-    const speedMbps = ((bytes * 8) / 1_000_000 / timeSec).toFixed(2);
+    let bytesReceived = 0;
+    const startTime = performance.now();
+
+    while (true) {
+      const { done, value } = await reader!.read();
+      if (done) break;
+      bytesReceived += value.length;
+    }
+
+    const endTime = performance.now();
+    const durationSec = (endTime - startTime) / 1000;
+    const speedMbps = ((bytesReceived * 8) / 1_000_000 / durationSec).toFixed(2);
 
     setDownload(Number(speedMbps));
     return Number(speedMbps);
@@ -74,22 +81,19 @@ export const useSpeedTest = () => {
   // Measure Upload
   // -----------------------------
   const measureUpload = async () => {
-    const sizeMB = 10;
+    const sizeMB = 25; // bigger file for more stable measurement
     const blob = new Blob([new Uint8Array(sizeMB * 1024 * 1024)]);
     const start = performance.now();
     await fetch(`${API_BASE}/upload`, { method: "POST", body: blob });
     const end = performance.now();
 
-    const timeSec = (end - start) / 1000;
-    const speedMbps = ((sizeMB * 8) / timeSec).toFixed(2);
+    const durationSec = (end - start) / 1000;
+    const speedMbps = ((sizeMB * 8) / durationSec).toFixed(2);
 
     setUpload(Number(speedMbps));
     return Number(speedMbps);
   };
 
-  // -----------------------------
-  // Run Full Test
-  // -----------------------------
   const runFullTest = async () => {
     setTesting(true);
     setPing(0);
@@ -97,7 +101,6 @@ export const useSpeedTest = () => {
     setDownload(0);
     setUpload(0);
 
-    // Run sequentially
     const { avg, jit } = await measurePing();
     const dl = await measureDownload();
     const ul = await measureUpload();
